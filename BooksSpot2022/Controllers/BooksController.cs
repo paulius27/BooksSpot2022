@@ -186,5 +186,46 @@ namespace BooksSpot2022.Controllers
 
             return Ok(new Response { Status = "Success", Message = "Book borrowed successfully!" });
         }
+
+        [Authorize(Roles = UserRoles.Admin)]
+        [HttpPut("{bookId}/return")]
+        public async Task<IActionResult> Return(Guid bookId)
+        {
+            var book = await _context.Books.SingleOrDefaultAsync(book => book.Id == bookId);
+
+            if (book == null)
+                return StatusCode(StatusCodes.Status404NotFound, new Response { Status = "Error", Message = "Book not found." });
+
+            // Check book status
+
+            if (book.Status == BookStatus.Available)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book is already available." });
+
+            // Return the book
+
+            if (book.Status == BookStatus.Reserved)
+            {
+                var reservation = _context.BookReservations.Where(br => br.BookId == book.Id).FirstOrDefault();
+
+                if (reservation != null)
+                    _context.BookReservations.Remove(reservation);
+            }
+            else if (book.Status == BookStatus.Borrowed)
+            {
+                var borrowing = _context.BookBorrowings.Where(bb => bb.BookId == book.Id).FirstOrDefault();
+
+                if (borrowing != null)
+                    _context.BookBorrowings.Remove(borrowing);
+            }
+
+            book.Status = BookStatus.Available;
+
+            // Save changes
+
+            if (await _context.SaveChangesAsync() < 1)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book returning failed." });
+
+            return Ok(new Response { Status = "Success", Message = "Book returned successfully!" });
+        }
     }
 }
