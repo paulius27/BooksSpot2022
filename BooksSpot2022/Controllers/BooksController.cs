@@ -6,6 +6,7 @@ using BooksSpot2022.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace BooksSpot2022.Controllers
 {
@@ -120,6 +121,29 @@ namespace BooksSpot2022.Controllers
                 return StatusCode(StatusCodes.Status404NotFound, new Response { Status = "Error", Message = "No books found." });
 
             return Ok(books);
+        }
+
+        [HttpPut("{bookId}/reserve")]
+        public async Task<IActionResult> Reserve(Guid bookId)
+        {
+            var book = await _context.Books.SingleOrDefaultAsync(book => book.Id == bookId);
+
+            if (book == null)
+                return StatusCode(StatusCodes.Status404NotFound, new Response { Status = "Error", Message = "Book not found." });
+
+            if (book.Status != BookStatus.Available)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book is not available." });
+
+            var userId = Guid.Parse(User.Claims.First(i => i.Type == ClaimTypes.NameIdentifier).Value);
+            var reservation = new BookReservation { UserId = userId, BookId = bookId };
+            _context.BookReservations.Add(reservation);
+
+            book.Status = BookStatus.Reserved;
+
+            if (await _context.SaveChangesAsync() < 1)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book reservation failed." });
+
+            return Ok(new Response { Status = "Success", Message = "Book reserved successfully!" });
         }
     }
 }

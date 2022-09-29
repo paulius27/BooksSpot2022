@@ -12,10 +12,13 @@ namespace BooksSpot2022.Data
         }
 
         public DbSet<Book> Books { get; set; }
+        public DbSet<BookReservation> BookReservations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            builder.Entity<BookReservation>().HasKey(bookReservation => new { bookReservation.UserId, bookReservation.BookId });
         }
     }
 }
