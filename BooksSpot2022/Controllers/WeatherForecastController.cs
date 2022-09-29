@@ -1,7 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using BooksSpot2022.Auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BooksSpot2022.Controllers
 {
+    [Authorize(Roles = UserRoles.Admin)]
     [ApiController]
     [Route("[controller]")]
     public class WeatherForecastController : ControllerBase
@@ -21,6 +25,8 @@ namespace BooksSpot2022.Controllers
         [HttpGet]
         public IEnumerable<WeatherForecast> Get()
         {
+            var userId = User.Claims.First(i => i.Type == ClaimTypes.NameIdentifier).Value;
+
             return Enumerable.Range(1, 5).Select(index => new WeatherForecast
             {
                 Date = DateTime.Now.AddDays(index),
