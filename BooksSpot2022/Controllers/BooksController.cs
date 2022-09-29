@@ -1,5 +1,6 @@
 ﻿using BooksSpot2022.Auth;
 using BooksSpot2022.Data;
+using BooksSpot2022.DTOs;
 using BooksSpot2022.Models;
 using BooksSpot2022.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -85,6 +86,40 @@ namespace BooksSpot2022.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book deletion failed." });
 
             return Ok(new Response { Status = "Success", Message = "Book deleted successfully!" });
+        }
+
+        [HttpPost("search")]
+        public async Task<IActionResult> Search([FromBody] BooksSearchParamsDTO searchParamsDTO)
+        {
+            var books = _context.Books.AsQueryable();
+
+            if (searchParamsDTO.Title != null)
+                books = books.Where(book => book.Title.ToLower().Contains(searchParamsDTO.Title.ToLower()));
+
+            if (searchParamsDTO.Author != null)
+                books = books.Where(book => book.Author.ToLower().Contains(searchParamsDTO.Author.ToLower()));
+
+            if (searchParamsDTO.Publisher != null)
+                books = books.Where(book => book.Publisher.ToLower().Contains(searchParamsDTO.Publisher.ToLower()));
+
+            if (searchParamsDTO.PublishingYear != null)
+                books = books.Where(book => book.PublishingDate.Year == searchParamsDTO.PublishingYear);
+
+            if (searchParamsDTO.Genre != null)
+                books = books.Where(book => book.Genre.ToLower().Contains(searchParamsDTO.Genre.ToLower()));
+
+            if (searchParamsDTO.ISBN != null)
+                books = books.Where(book => book.ISBN.Contains(searchParamsDTO.ISBN));
+
+            if (searchParamsDTO.Status != null)
+                books = books.Where(book => book.Status == searchParamsDTO.Status);
+
+            var searchResults = books.ToList();
+
+            if (searchResults.Count < 1)
+                return StatusCode(StatusCodes.Status404NotFound, new Response { Status = "Error", Message = "No books found." });
+
+            return Ok(books);
         }
     }
 }
