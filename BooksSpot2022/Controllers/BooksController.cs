@@ -123,9 +123,11 @@ namespace BooksSpot2022.Controllers
             return Ok(books);
         }
 
+        [Authorize]
         [HttpPut("{bookId}/reserve")]
         public async Task<IActionResult> Reserve(Guid bookId)
         {
+            var userId = Guid.Parse(User.Claims.First(i => i.Type == ClaimTypes.NameIdentifier).Value);
             var book = await _context.Books.SingleOrDefaultAsync(book => book.Id == bookId);
 
             if (book == null)
@@ -134,7 +136,6 @@ namespace BooksSpot2022.Controllers
             if (book.Status != BookStatus.Available)
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book is not available." });
 
-            var userId = Guid.Parse(User.Claims.First(i => i.Type == ClaimTypes.NameIdentifier).Value);
             var reservation = new BookReservation { UserId = userId, BookId = bookId };
             _context.BookReservations.Add(reservation);
 
@@ -144,6 +145,46 @@ namespace BooksSpot2022.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book reservation failed." });
 
             return Ok(new Response { Status = "Success", Message = "Book reserved successfully!" });
+        }
+
+        [Authorize]
+        [HttpPut("{bookId}/borrow")]
+        public async Task<IActionResult> Borrow(Guid bookId)
+        {
+            var userId = Guid.Parse(User.Claims.First(i => i.Type == ClaimTypes.NameIdentifier).Value);
+            var book = await _context.Books.SingleOrDefaultAsync(book => book.Id == bookId);
+
+            if (book == null)
+                return StatusCode(StatusCodes.Status404NotFound, new Response { Status = "Error", Message = "Book not found." });
+
+            // Check book status
+
+            var previousBookStatus = book.Status;
+
+            if (previousBookStatus == BookStatus.Borrowed)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book is already borrowed." });
+
+            var reservation = _context.BookReservations.Where(br => br.UserId == userId && br.BookId == book.Id).FirstOrDefault();
+
+            if (previousBookStatus == BookStatus.Reserved && reservation == null)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book is already reserved by different user." });
+            
+            // Borrow the book
+
+            var borrowing = new BookBorrowing { UserId = userId, BookId = bookId };
+            _context.BookBorrowings.Add(borrowing);
+
+            book.Status = BookStatus.Borrowed;
+
+            if (previousBookStatus == BookStatus.Reserved && reservation != null)
+                 _context.BookReservations.Remove(reservation);
+
+            // Save changes
+
+            if (await _context.SaveChangesAsync() < 1)
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Book borrowing failed." });
+
+            return Ok(new Response { Status = "Success", Message = "Book borrowed successfully!" });
         }
     }
 }
